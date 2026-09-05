@@ -138,9 +138,8 @@ export const PosterModal: React.FC<PosterModalProps> = ({ store }) => {
               </div>
             </div>
 
-            {/* Footer Dedication & Date */}
-            <div className="mt-6 pt-3 border-t border-amber-500/20 w-full flex items-center justify-between text-xs text-amber-200/90 font-serif">
-              <span className="italic font-medium">Have a safe trip, Eugenio ❤️</span>
+            {/* Footer Date */}
+            <div className="mt-6 pt-3 border-t border-amber-500/20 w-full flex items-center justify-end text-xs text-amber-200/90 font-serif">
               <span className="text-[10px] text-slate-400 font-mono not-italic">{new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</span>
             </div>
           </div>
