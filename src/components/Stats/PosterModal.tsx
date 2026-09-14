@@ -18,7 +18,9 @@ export const PosterModal: React.FC<PosterModalProps> = ({ store }) => {
     if (!posterRef.current) return;
     try {
       setIsExporting(true);
-      const canvas = await html2canvas(posterRef.current, {
+      const mapEl = document.getElementById('map-container');
+      if (!mapEl) return;
+      const canvas = await html2canvas(mapEl, {
         scale: 2,
         backgroundColor: '#090d16',
         useCORS: true

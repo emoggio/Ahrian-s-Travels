@@ -155,9 +155,43 @@ export const WorldMap = forwardRef<WorldMapRef, WorldMapProps>(({
   }, []);
 
   // Initialize Leaflet Map & Inject SVG Shaders
+  // Touch handling for mobile: single‑finger scratch, multi‑finger gestures
   useEffect(() => {
-    if (!mapContainerRef.current || mapInstanceRef.current) return;
+    if (!mapInstanceRef.current) return;
+    const map = mapInstanceRef.current;
+    const isTouchScratch = { current: false };
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 1) {
+        // single finger – start scratch, disable map drag/zoom
+        isTouchScratch.current = true;
+        if (map.dragging.enabled()) map.dragging.disable();
+        if ((map as any).touchZoom && (map as any).touchZoom.enabled()) (map as any).touchZoom.disable();
+      } else {
+        // multi‑finger – keep map interactions enabled
+        isTouchScratch.current = false;
+        if (!map.dragging.enabled()) map.dragging.enable();
+        if ((map as any).touchZoom && !(map as any).touchZoom.enabled()) (map as any).touchZoom.enable();
+      }
+    };
+    const handleTouchEnd = () => {
+      if (isTouchScratch.current) {
+        if (!map.dragging.enabled()) map.dragging.enable();
+        if ((map as any).touchZoom && !(map as any).touchZoom.enabled()) (map as any).touchZoom.enable();
+        isTouchScratch.current = false;
+      }
+    };
+    const container = map.getContainer();
+    container.addEventListener('touchstart', handleTouchStart, { passive: false });
+    container.addEventListener('touchend', handleTouchEnd);
+    return () => {
+      container.removeEventListener('touchstart', handleTouchStart);
+      container.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, []);
 
+    // Initialize Leaflet map if not yet created
+  useEffect(() => {
+    if (mapInstanceRef.current || !mapContainerRef.current) return;
     const map = L.map(mapContainerRef.current, {
       center: [25, 10],
       zoom: 2.3,
@@ -169,38 +203,17 @@ export const WorldMap = forwardRef<WorldMapRef, WorldMapProps>(({
       attributionControl: false,
       worldCopyJump: true
     });
-
     L.control.zoom({ position: 'bottomright' }).addTo(map);
-
-    // City markers layer group
     const cityGroup = L.layerGroup().addTo(map);
     cityMarkersGroupRef.current = cityGroup;
-
-    // Inject SVG Gradient Shaders into Leaflet SVG pane
     const overlayPane = map.getPanes().overlayPane;
-    let svg = overlayPane.querySelector('svg');
-    if (!svg) {
-      // Leaflet creates svg on first layer add, or we can create defs
-      const observer = new MutationObserver(() => {
-        const leafSvg = overlayPane.querySelector('svg');
-        if (leafSvg && !leafSvg.querySelector('#scratch-map-defs')) {
-          injectSvgGradients(leafSvg);
-        }
-      });
-      observer.observe(overlayPane, { childList: true, subtree: true });
-    } else {
+    const svg = overlayPane.querySelector('svg');
+    if (svg) {
       injectSvgGradients(svg);
     }
-
     mapInstanceRef.current = map;
-
-    return () => {
-      map.remove();
-      mapInstanceRef.current = null;
-    };
   }, []);
 
-  // Helper to inject rich metallic & color gradient shaders
   const injectSvgGradients = (svgElement: SVGSVGElement) => {
     if (svgElement.querySelector('#scratch-map-defs')) return;
 
@@ -292,7 +305,7 @@ export const WorldMap = forwardRef<WorldMapRef, WorldMapProps>(({
   // Style country feature
   const getCountryStyle = (feature: any) => {
     const props = feature.properties || {};
-    const id = props.ISO_A3 || props.ADM0_A3 || props.GU_A3 || props.WB_A3 || props.ISO_A2 || props.NAME;
+    const id = 'country-' + (props.ISO_A3 || props.ISO_A2 || props.NAME);
     const isScr = isVisited(id);
     const cInfo = getCountryData(id, props.NAME);
     const themeStyles = getThemeBaseStyles(theme);
@@ -638,10 +651,7 @@ export const WorldMap = forwardRef<WorldMapRef, WorldMapProps>(({
       onDragStart={(e) => e.preventDefault()}
     >
       {/* Leaflet Map Target */}
-      <div 
-        ref={mapContainerRef} 
-        className="w-full h-full z-0 scratch-map-ocean"
-      />
+      <div id="map-container" ref={mapContainerRef} className="w-full h-full z-0 scratch-map-ocean" />
 
       {/* Particle Canvas Overlay */}
       <canvas 

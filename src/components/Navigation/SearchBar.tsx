@@ -78,7 +78,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
     // Countries
     Object.values(WORLD_COUNTRIES).forEach(country => {
       items.push({
-        id: country.id,
+        id: `country-${country.id}`,
         type: 'country',
         name: country.name,
         countryCode: country.isoA3,

@@ -13,11 +13,21 @@ export const useScratchStore = () => {
   const [visitedMap, setVisitedMap] = useState<Record<string, VisitedEntity>>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved) as Record<string, any>;
+        // Migrate legacy IDs (e.g., "FRA") to the new "country-" prefixed format
+        const migrated = Object.fromEntries(
+          Object.entries(parsed).map(([key, value]) => {
+            const newKey = key.startsWith('country-') || key.startsWith('state-') ? key : `country-${key}`;
+            return [newKey, value];
+          })
+        ) as Record<string, VisitedEntity>;
+        return migrated;
+      }
     } catch (e) {
       console.error('Error loading saved scratch data', e);
     }
-    return {};
+    return {} as Record<string, VisitedEntity>;
   });
 
   const [undoStack, setUndoStack] = useState<VisitedEntity[]>([]);
