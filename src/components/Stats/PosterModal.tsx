@@ -43,8 +43,8 @@ export const PosterModal: React.FC<PosterModalProps> = ({ store }) => {
 
         // Initialize offscreen Leaflet map centered to frame the ENTIRE world
         const map = L.map(container, {
-          center: [20, 0],
-          zoom: 2,
+          center: [15, 0],
+          zoom: 2.2,
           zoomControl: false,
           attributionControl: false,
           dragging: false,
@@ -53,6 +53,10 @@ export const PosterModal: React.FC<PosterModalProps> = ({ store }) => {
           doubleClickZoom: false,
           boxZoom: false
         });
+
+        // Force Leaflet to calculate container dimensions for perfect centering
+        map.invalidateSize();
+        map.fitBounds([[-58, -168], [72, 168]]);
 
         const overlayPane = map.getPanes().overlayPane;
         const svg = overlayPane.querySelector('svg');
@@ -195,10 +199,10 @@ export const PosterModal: React.FC<PosterModalProps> = ({ store }) => {
               {store.friendName ? `${store.friendName.toUpperCase()}'S TRAVEL MAP` : 'SCRATCH THE WORLD'}
             </h3>
 
-            {/* Scratched Full World Map Image (2:1 Widescreen Aspect Ratio) */}
-            <div className="w-full mb-4 overflow-hidden rounded-xl border border-amber-500/30 shadow-lg bg-slate-950 flex items-center justify-center min-h-[180px] aspect-[2/1]">
+            {/* Scratched Full World Map Image (Perfect Centered Widescreen View) */}
+            <div className="w-full mb-4 overflow-hidden rounded-xl border border-amber-500/30 shadow-lg bg-slate-950 flex items-center justify-center min-h-[180px] p-1">
               {mapSnapshotUrl ? (
-                <img src={mapSnapshotUrl} alt="Full Scratched World Map" className="w-full h-full object-cover" />
+                <img src={mapSnapshotUrl} alt="Full Scratched World Map" className="w-full h-auto max-h-[260px] object-contain mx-auto my-auto block" />
               ) : (
                 <div className="p-6 text-xs text-amber-300/80 flex items-center gap-2">
                   <Sparkles className="w-4 h-4 animate-spin text-amber-400" />
