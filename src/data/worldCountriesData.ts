@@ -837,7 +837,44 @@ export const WORLD_COUNTRIES: Record<string, CountryInfo> = {
   }
 };
 
+export const ISO3_TO_ISO2: Record<string, string> = {
+  FJI: 'FJ', TZA: 'TZ', ESH: 'EH', CAN: 'CA', USA: 'US', KAZ: 'KZ', UZB: 'UZ', PNG: 'PG',
+  IDN: 'ID', ARG: 'AR', CHL: 'CL', COD: 'CD', SOM: 'SO', KEN: 'KE', SDN: 'SD', TCD: 'TD',
+  HTI: 'HT', DOM: 'DO', RUS: 'RU', BHS: 'BS', FLK: 'FK', NOR: 'NO', GRL: 'GL', ATF: 'TF',
+  TLS: 'TL', ZAF: 'ZA', LSO: 'LS', MEX: 'MX', URY: 'UY', BRA: 'BR', BOL: 'BO', PER: 'PE',
+  COL: 'CO', PAN: 'PA', CRI: 'CR', NIC: 'NI', HND: 'HN', SLV: 'SV', GTM: 'GT', BLZ: 'BZ',
+  VEN: 'VE', GUY: 'GY', SUR: 'SR', FRA: 'FR', ECU: 'EC', PRI: 'PR', JAM: 'JM', CUB: 'CU',
+  ZWE: 'ZW', BWA: 'BW', NAM: 'NA', SEN: 'SN', MLI: 'ML', MRT: 'MR', BEN: 'BJ', NER: 'NE',
+  NGA: 'NG', CMR: 'CM', TGO: 'TG', GHA: 'GH', CIV: 'CI', GIN: 'GN', GNB: 'GW', LBR: 'LR',
+  SLE: 'SL', BFA: 'BF', CAF: 'CF', COG: 'CG', GAB: 'GA', GNQ: 'GQ', ZMB: 'ZM', MWI: 'MW',
+  MOZ: 'MZ', SWZ: 'SZ', AGO: 'AO', BDI: 'BI', ISR: 'IL', LBN: 'LB', MDG: 'MG', PSE: 'PS',
+  GMB: 'GM', TUN: 'TN', DZA: 'DZ', JOR: 'JO', ARE: 'AE', QAT: 'QA', KWT: 'KW', IRQ: 'IQ',
+  OMN: 'OM', VUT: 'VU', KHM: 'KH', THA: 'TH', LAO: 'LA', MMR: 'MM', VNM: 'VN', PRK: 'KP',
+  KOR: 'KR', MNG: 'MN', IND: 'IN', BGD: 'BD', BTN: 'BT', NPL: 'NP', PAK: 'PK', AFG: 'AF',
+  TJK: 'TJ', KGZ: 'KG', TKM: 'TM', IRN: 'IR', SYR: 'SY', ARM: 'AM', SWE: 'SE', BLR: 'BY',
+  UKR: 'UA', POL: 'PL', AUT: 'AT', HUN: 'HU', MDA: 'MD', ROU: 'RO', LTU: 'LT', LVA: 'LV',
+  EST: 'EE', DEU: 'DE', BGR: 'BG', GRC: 'GR', TUR: 'TR', ALB: 'AL', HRV: 'HR', CHE: 'CH',
+  LUX: 'LU', BEL: 'BE', NLD: 'NL', PRT: 'PT', ESP: 'ES', IRL: 'IE', NCL: 'NC', SLB: 'SB',
+  NZL: 'NZ', AUS: 'AU', LKA: 'LK', CHN: 'CN', TWN: 'TW', ITA: 'IT', DNK: 'DK', GBR: 'GB',
+  ISL: 'IS', AZE: 'AZ', GEO: 'GE', PHL: 'PH', MYS: 'MY', BRN: 'BN', SVN: 'SI', FIN: 'FI',
+  SVK: 'SK', CZE: 'CZ', ERI: 'ER', JPN: 'JP', PRY: 'PY', YEM: 'YE', SAU: 'SA', ATA: 'AQ',
+  CYN: 'CN', CYP: 'CY', MAR: 'MA', EGY: 'EG', LBY: 'LY', ETH: 'ET', DJI: 'DJ', SOL: 'SL',
+  UGA: 'UG', RWA: 'RW', BIH: 'BA', MKD: 'MK', SRB: 'RS', MNE: 'ME', KOS: 'XK', TTO: 'TT',
+  SSD: 'SS'
+};
+
+export const getFlagEmoji = (isoA2: string): string => {
+  if (!isoA2 || isoA2.length !== 2) return '🗺️';
+  try {
+    return String.fromCodePoint(...isoA2.toUpperCase().split('').map(c => 127397 + c.charCodeAt(0)));
+  } catch {
+    return '🗺️';
+  }
+};
+
 export const getCountryData = (id: string, name?: string): CountryInfo => {
+  const cleanId = id.replace(/^country-/, '').toUpperCase();
+  if (WORLD_COUNTRIES[cleanId]) return WORLD_COUNTRIES[cleanId];
   if (WORLD_COUNTRIES[id]) return WORLD_COUNTRIES[id];
   
   // Find by name match
@@ -846,22 +883,25 @@ export const getCountryData = (id: string, name?: string): CountryInfo => {
   );
   if (found) return found;
 
+  const isoA2 = ISO3_TO_ISO2[cleanId] || (cleanId.length === 2 ? cleanId : null) || 'UN';
+  const flagEmoji = getFlagEmoji(isoA2);
+
   // Fallback dynamic generator
-  const hash = (id + (name || '')).split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  const hash = (cleanId + (name || '')).split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
   const color = countryPalette[hash % countryPalette.length];
   
   return {
-    id,
-    name: name || id,
-    isoA2: id.slice(0, 2),
-    isoA3: id,
+    id: cleanId,
+    name: name || cleanId,
+    isoA2,
+    isoA3: cleanId,
     continent: 'World',
     capital: 'Capital City',
     currency: 'Local Currency',
-    flagEmoji: '📍',
+    flagEmoji,
     greeting: 'Welcome / Hello!',
     trivia: [
-      `${name || id} is a remarkable travel destination waiting to be explored!`,
+      `${name || cleanId} is a remarkable travel destination waiting to be explored!`,
       'Every journey leaves unique memories and footsteps on the globe.'
     ],
     famousLandmarks: ['Historic City Center', 'Scenic Natural Landscapes'],

@@ -222,6 +222,9 @@ export const WorldMap = forwardRef<WorldMapRef, WorldMapProps>(({
     onScratchEffect(x, y);
   }, [theme, onScratchEffect]);
 
+  // Ref to track timestamp of last multi-touch gesture to prevent accidental scratches on finger release
+  const lastMultiTouchTimeRef = useRef<number>(0);
+
   // Touch handling for mobile: single-finger scratch in Rub Mode; 2+ fingers for map gestures (pan/zoom/rotate)
   useEffect(() => {
     if (!mapInstanceRef.current || !isLoaded) return;
@@ -230,6 +233,20 @@ export const WorldMap = forwardRef<WorldMapRef, WorldMapProps>(({
 
     const handleTouchStart = (e: TouchEvent) => {
       if (scratchMode !== 'scratch') return;
+      if (e.touches.length > 1) {
+        lastMultiTouchTimeRef.current = Date.now();
+        isScratchingRef.current = false;
+        scratchTargetRef.current = null;
+        return;
+      }
+
+      // If multi-touch active recently (within 400ms), suppress scratching
+      if (Date.now() - lastMultiTouchTimeRef.current < 400) {
+        isScratchingRef.current = false;
+        scratchTargetRef.current = null;
+        return;
+      }
+
       if (e.touches.length === 1) {
         const touch = e.touches[0];
         const elem = document.elementFromPoint(touch.clientX, touch.clientY);
@@ -251,16 +268,19 @@ export const WorldMap = forwardRef<WorldMapRef, WorldMapProps>(({
           };
           triggerScratchFlakes(touch.clientX, touch.clientY);
         }
-      } else {
-        isScratchingRef.current = false;
-        scratchTargetRef.current = null;
       }
     };
 
     const handleTouchMove = (e: TouchEvent) => {
       if (scratchMode !== 'scratch') return;
       if (e.touches.length > 1) {
-        // Multi-touch: allow native Leaflet pan/zoom/rotate
+        lastMultiTouchTimeRef.current = Date.now();
+        isScratchingRef.current = false;
+        scratchTargetRef.current = null;
+        return;
+      }
+
+      if (Date.now() - lastMultiTouchTimeRef.current < 400) {
         isScratchingRef.current = false;
         scratchTargetRef.current = null;
         return;
@@ -312,7 +332,10 @@ export const WorldMap = forwardRef<WorldMapRef, WorldMapProps>(({
       }
     };
 
-    const handleTouchEnd = () => {
+    const handleTouchEnd = (e: TouchEvent) => {
+      if (e.touches.length >= 1) {
+        lastMultiTouchTimeRef.current = Date.now();
+      }
       isScratchingRef.current = false;
       scratchTargetRef.current = null;
     };
