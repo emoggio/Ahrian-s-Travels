@@ -1,7 +1,10 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { X, Download, Share2, Sparkles, Check } from 'lucide-react';
 import html2canvas from 'html2canvas';
+import L from 'leaflet';
 import { ScratchStore } from '../../hooks/useScratchStore';
+import { getFeatureCountryCode, getThemeBaseStyles, injectSvgGradients } from '../Map/WorldMap';
+import { getCountryData } from '../../data/worldCountriesData';
 
 interface PosterModalProps {
   store: ScratchStore;
@@ -12,32 +15,115 @@ export const PosterModal: React.FC<PosterModalProps> = ({ store }) => {
   const [isExporting, setIsExporting] = useState<boolean>(false);
   const [copied, setCopied] = useState<boolean>(false);
   const [mapSnapshotUrl, setMapSnapshotUrl] = useState<string | null>(null);
+  const [isGeneratingMap, setIsGeneratingMap] = useState<boolean>(false);
 
   useEffect(() => {
     if (!store.isPosterOpen) return;
     let isMounted = true;
-    const captureMapSnapshot = async () => {
-      const mapEl = document.getElementById('map-container');
-      if (!mapEl) return;
+
+    const generateFullWorldSnapshot = async () => {
       try {
-        const canvas = await html2canvas(mapEl, {
-          scale: 1.5,
-          backgroundColor: '#090d16',
+        setIsGeneratingMap(true);
+        // Fetch GeoJSON data for full world rendering
+        const geoData = await fetch('./data/world-countries.geojson').then(r => r.json());
+        if (!isMounted) return;
+
+        // Create an offscreen container with a fixed 2:1 widescreen poster aspect ratio (1200x600)
+        const container = document.createElement('div');
+        container.style.width = '1200px';
+        container.style.height = '600px';
+        container.style.position = 'fixed';
+        container.style.left = '-9999px';
+        container.style.top = '-9999px';
+        container.style.zIndex = '-9999';
+
+        const themeStyles = getThemeBaseStyles(store.theme);
+        container.style.backgroundColor = themeStyles.ocean;
+        document.body.appendChild(container);
+
+        // Initialize offscreen Leaflet map centered to frame the ENTIRE world
+        const map = L.map(container, {
+          center: [20, 0],
+          zoom: 2,
+          zoomControl: false,
+          attributionControl: false,
+          dragging: false,
+          touchZoom: false,
+          scrollWheelZoom: false,
+          doubleClickZoom: false,
+          boxZoom: false
+        });
+
+        const overlayPane = map.getPanes().overlayPane;
+        const svg = overlayPane.querySelector('svg');
+        if (svg) {
+          injectSvgGradients(svg);
+        }
+
+        // Add full world GeoJSON layer with active scratch map state
+        L.geoJSON(geoData, {
+          style: (feature: any) => {
+            const props = feature?.properties || {};
+            const countryCode = getFeatureCountryCode(props);
+            const id = 'country-' + countryCode;
+            const isScr = !!store.visitedMap[id];
+            const cInfo = getCountryData(countryCode, props.NAME);
+
+            if (isScr) {
+              return {
+                fillColor: cInfo.color || '#3b82f6',
+                weight: 1.2,
+                opacity: 0.9,
+                color: '#ffffff',
+                fillOpacity: themeStyles.scratchedOpacity
+              };
+            }
+
+            return {
+              fillColor: themeStyles.unscratchedFill,
+              weight: 0.7,
+              opacity: 0.8,
+              color: themeStyles.unscratchedStroke,
+              fillOpacity: 1
+            };
+          }
+        }).addTo(map);
+
+        // Wait a short moment for Leaflet SVG paths to finish rendering
+        await new Promise(resolve => setTimeout(resolve, 350));
+
+        // Capture offscreen full world map canvas
+        const canvas = await html2canvas(container, {
+          scale: 2,
+          backgroundColor: themeStyles.ocean,
           useCORS: true,
           logging: false
         });
+
+        const dataUrl = canvas.toDataURL('image/png');
+
+        // Cleanup DOM and offscreen Leaflet instance
+        map.remove();
+        document.body.removeChild(container);
+
         if (isMounted) {
-          setMapSnapshotUrl(canvas.toDataURL('image/png'));
+          setMapSnapshotUrl(dataUrl);
         }
       } catch (err) {
-        console.error('Failed to capture map snapshot for poster', err);
+        console.error('Failed to generate full world map snapshot for poster', err);
+      } finally {
+        if (isMounted) {
+          setIsGeneratingMap(false);
+        }
       }
     };
-    captureMapSnapshot();
+
+    generateFullWorldSnapshot();
+
     return () => {
       isMounted = false;
     };
-  }, [store.isPosterOpen]);
+  }, [store.isPosterOpen, store.visitedMap, store.theme]);
 
   if (!store.isPosterOpen) return null;
 
@@ -109,14 +195,14 @@ export const PosterModal: React.FC<PosterModalProps> = ({ store }) => {
               {store.friendName ? `${store.friendName.toUpperCase()}'S TRAVEL MAP` : 'SCRATCH THE WORLD'}
             </h3>
 
-            {/* Scratched Map Preview Image */}
-            <div className="w-full mb-4 overflow-hidden rounded-xl border border-amber-500/30 shadow-lg bg-slate-950 flex items-center justify-center min-h-[160px]">
+            {/* Scratched Full World Map Image (2:1 Widescreen Aspect Ratio) */}
+            <div className="w-full mb-4 overflow-hidden rounded-xl border border-amber-500/30 shadow-lg bg-slate-950 flex items-center justify-center min-h-[180px] aspect-[2/1]">
               {mapSnapshotUrl ? (
-                <img src={mapSnapshotUrl} alt="Scratched Map Snapshot" className="w-full h-auto object-contain max-h-[220px]" />
+                <img src={mapSnapshotUrl} alt="Full Scratched World Map" className="w-full h-full object-cover" />
               ) : (
                 <div className="p-6 text-xs text-amber-300/80 flex items-center gap-2">
                   <Sparkles className="w-4 h-4 animate-spin text-amber-400" />
-                  <span>Generating map poster preview...</span>
+                  <span>Generating full world map poster...</span>
                 </div>
               )}
             </div>
@@ -191,7 +277,7 @@ export const PosterModal: React.FC<PosterModalProps> = ({ store }) => {
 
           <button
             onClick={handleDownloadImage}
-            disabled={isExporting}
+            disabled={isExporting || isGeneratingMap}
             className="flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-400 hover:brightness-110 text-slate-950 text-xs font-bold flex items-center justify-center gap-2 shadow-foil transition-all disabled:opacity-50"
           >
             <Download className="w-4 h-4" />

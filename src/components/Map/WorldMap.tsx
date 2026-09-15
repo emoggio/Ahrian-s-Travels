@@ -24,6 +24,101 @@ export const getFeatureCountryCode = (props: any): string => {
   return candidate || props.NAME || 'UNKNOWN';
 };
 
+export const getThemeBaseStyles = (themeName: MapTheme) => {
+  switch (themeName) {
+    case 'midnight':
+      return {
+        ocean: '#070a12',
+        unscratchedFill: '#242e42',
+        unscratchedStroke: '#384763',
+        scratchedOpacity: 0.95,
+        highlightStroke: '#38bdf8'
+      };
+    case 'vintage':
+      return {
+        ocean: '#221a11',
+        unscratchedFill: '#d7c297',
+        unscratchedStroke: '#9f8355',
+        scratchedOpacity: 0.92,
+        highlightStroke: '#fef3c7'
+      };
+    case 'emerald':
+      return {
+        ocean: '#021815',
+        unscratchedFill: '#094f3b',
+        unscratchedStroke: '#0e6e53',
+        scratchedOpacity: 0.95,
+        highlightStroke: '#34d399'
+      };
+    case 'cyber':
+      return {
+        ocean: '#080414',
+        unscratchedFill: '#23153c',
+        unscratchedStroke: '#4c2c82',
+        scratchedOpacity: 0.95,
+        highlightStroke: '#f43f5e'
+      };
+    case 'gold':
+    default:
+      return {
+        ocean: '#0b1120',
+        unscratchedFill: '#cba135',
+        unscratchedStroke: '#8e6b18',
+        scratchedOpacity: 0.95,
+        highlightStroke: '#ffffff'
+      };
+  }
+};
+
+export const injectSvgGradients = (svgElement: SVGSVGElement) => {
+  if (svgElement.querySelector('#scratch-map-defs')) return;
+
+  const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+  defs.id = 'scratch-map-defs';
+  defs.innerHTML = `
+    <!-- Luxury Gold Foil Brushed Metallic Shader -->
+    <linearGradient id="foil-gold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fae792" />
+      <stop offset="25%" stop-color="#dfb643" />
+      <stop offset="50%" stop-color="#c29329" />
+      <stop offset="75%" stop-color="#ecd16f" />
+      <stop offset="90%" stop-color="#a47513" />
+      <stop offset="100%" stop-color="#dcb241" />
+    </linearGradient>
+
+    <!-- Midnight Titanium Shader -->
+    <linearGradient id="foil-midnight" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3b4b66" />
+      <stop offset="40%" stop-color="#1e293b" />
+      <stop offset="75%" stop-color="#0f172a" />
+      <stop offset="100%" stop-color="#243046" />
+    </linearGradient>
+
+    <!-- Vintage Parchment Shader -->
+    <linearGradient id="foil-vintage" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#faeed6" />
+      <stop offset="35%" stop-color="#d7bf92" />
+      <stop offset="70%" stop-color="#c5ab78" />
+      <stop offset="100%" stop-color="#b69864" />
+    </linearGradient>
+
+    <!-- Emerald Malachite Shader -->
+    <linearGradient id="foil-emerald" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10b981" />
+      <stop offset="50%" stop-color="#047857" />
+      <stop offset="100%" stop-color="#064e3b" />
+    </linearGradient>
+
+    <!-- Cyber Neon Shader -->
+    <linearGradient id="foil-cyber" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6366f1" />
+      <stop offset="50%" stop-color="#31104e" />
+      <stop offset="100%" stop-color="#1a0b33" />
+    </linearGradient>
+  `;
+  svgElement.insertBefore(defs, svgElement.firstChild);
+};
+
 interface WorldMapProps {
   visitedMap: Record<string, VisitedEntity>;
   isVisited: (id: string) => boolean;
@@ -93,53 +188,6 @@ export const WorldMap = forwardRef<WorldMapRef, WorldMapProps>(({
     }
   }));
 
-  // Theme styling configurations
-  const getThemeBaseStyles = (themeName: MapTheme) => {
-    switch (themeName) {
-      case 'midnight':
-        return {
-          ocean: '#070a12',
-          unscratchedFill: '#242e42',
-          unscratchedStroke: '#384763',
-          scratchedOpacity: 0.95,
-          highlightStroke: '#38bdf8'
-        };
-      case 'vintage':
-        return {
-          ocean: '#221a11',
-          unscratchedFill: '#d7c297',
-          unscratchedStroke: '#9f8355',
-          scratchedOpacity: 0.92,
-          highlightStroke: '#fef3c7'
-        };
-      case 'emerald':
-        return {
-          ocean: '#021815',
-          unscratchedFill: '#094f3b',
-          unscratchedStroke: '#0e6e53',
-          scratchedOpacity: 0.95,
-          highlightStroke: '#34d399'
-        };
-      case 'cyber':
-        return {
-          ocean: '#080414',
-          unscratchedFill: '#23153c',
-          unscratchedStroke: '#4c2c82',
-          scratchedOpacity: 0.95,
-          highlightStroke: '#f43f5e'
-        };
-      case 'gold':
-      default:
-        return {
-          ocean: '#0b1120',
-          unscratchedFill: '#cba135',
-          unscratchedStroke: '#8e6b18',
-          scratchedOpacity: 0.95,
-          highlightStroke: '#ffffff'
-        };
-    }
-  };
-
   // Fetch GeoJSON on mount
   useEffect(() => {
     let isMounted = true;
@@ -168,44 +216,119 @@ export const WorldMap = forwardRef<WorldMapRef, WorldMapProps>(({
     }
   }, []);
 
+  // Handle pointer / scratch events cross-browser
+  const triggerScratchFlakes = useCallback((x: number, y: number) => {
+    particleSystemRef.current?.emit(x, y, theme);
+    onScratchEffect(x, y);
+  }, [theme, onScratchEffect]);
 
+  // Touch handling for mobile: single-finger scratch in Rub Mode; 2+ fingers for map gestures (pan/zoom/rotate)
+  useEffect(() => {
+    if (!mapInstanceRef.current || !isLoaded) return;
+    const map = mapInstanceRef.current;
+    const container = map.getContainer();
 
-// Initialize Leaflet Map & Inject SVG Shaders
-// Touch handling for mobile: single‑finger scratch, multi‑finger gestures
-useEffect(() => {
-  if (!mapInstanceRef.current || !isLoaded) return;
-  const map = mapInstanceRef.current;
-  const isTouchScratch = { current: false };
-  const handleTouchStart = (e: TouchEvent) => {
-    if (e.touches.length === 1) {
-      // single finger – start scratch, disable map drag/zoom
-      isTouchScratch.current = true;
-      if (map.dragging.enabled()) map.dragging.disable();
-      if ((map as any).touchZoom && (map as any).touchZoom.enabled()) (map as any).touchZoom.disable();
-    } else {
-      // multi‑finger – keep map interactions enabled
-      isTouchScratch.current = false;
-      if (!map.dragging.enabled()) map.dragging.enable();
-      if ((map as any).touchZoom && !(map as any).touchZoom.enabled()) (map as any).touchZoom.enable();
-    }
-  };
-  const handleTouchEnd = () => {
-    if (isTouchScratch.current) {
-      if (!map.dragging.enabled()) map.dragging.enable();
-      if ((map as any).touchZoom && !(map as any).touchZoom.enabled()) (map as any).touchZoom.enable();
-      isTouchScratch.current = false;
-    }
-  };
-  const container = map.getContainer();
-  container.addEventListener('touchstart', handleTouchStart, { passive: false });
-  container.addEventListener('touchend', handleTouchEnd);
-  container.addEventListener('touchcancel', handleTouchEnd);
-  return () => {
-    container.removeEventListener('touchstart', handleTouchStart);
-    container.removeEventListener('touchend', handleTouchEnd);
-    container.removeEventListener('touchcancel', handleTouchEnd);
-  };
-}, [isLoaded]);
+    const handleTouchStart = (e: TouchEvent) => {
+      if (scratchMode !== 'scratch') return;
+      if (e.touches.length === 1) {
+        const touch = e.touches[0];
+        const elem = document.elementFromPoint(touch.clientX, touch.clientY);
+        const entityId = elem?.getAttribute('data-entity-id');
+        const cCode = elem?.getAttribute('data-country-code');
+        const cName = elem?.getAttribute('data-country-name');
+
+        if (entityId) {
+          isScratchingRef.current = true;
+          scratchTargetRef.current = {
+            id: entityId,
+            type: 'country',
+            name: cName || 'Country',
+            countryCode: cCode || entityId,
+            countryName: cName || 'Country',
+            accumulatedDistance: 0,
+            lastX: touch.clientX,
+            lastY: touch.clientY
+          };
+          triggerScratchFlakes(touch.clientX, touch.clientY);
+        }
+      } else {
+        isScratchingRef.current = false;
+        scratchTargetRef.current = null;
+      }
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (scratchMode !== 'scratch') return;
+      if (e.touches.length > 1) {
+        // Multi-touch: allow native Leaflet pan/zoom/rotate
+        isScratchingRef.current = false;
+        scratchTargetRef.current = null;
+        return;
+      }
+
+      if (e.touches.length === 1) {
+        const touch = e.touches[0];
+        const x = touch.clientX;
+        const y = touch.clientY;
+        const elem = document.elementFromPoint(x, y);
+        const entityId = elem?.getAttribute('data-entity-id');
+        const cCode = elem?.getAttribute('data-country-code');
+        const cName = elem?.getAttribute('data-country-name');
+
+        if (entityId) {
+          if (e.cancelable) e.preventDefault();
+          triggerScratchFlakes(x, y);
+
+          if (!isScratchingRef.current || !scratchTargetRef.current || scratchTargetRef.current.id !== entityId) {
+            isScratchingRef.current = true;
+            scratchTargetRef.current = {
+              id: entityId,
+              type: 'country',
+              name: cName || 'Country',
+              countryCode: cCode || entityId,
+              countryName: cName || 'Country',
+              accumulatedDistance: 0,
+              lastX: x,
+              lastY: y
+            };
+          } else {
+            const target = scratchTargetRef.current;
+            const dx = x - target.lastX;
+            const dy = y - target.lastY;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+
+            if (dist > 2) {
+              target.accumulatedDistance += dist;
+              target.lastX = x;
+              target.lastY = y;
+
+              if (target.accumulatedDistance > 20 && !visitedMap[entityId]) {
+                onToggleScratch(entityId, 'country', target.name, target.countryCode, target.countryName);
+                target.accumulatedDistance = 0;
+              }
+            }
+          }
+        }
+      }
+    };
+
+    const handleTouchEnd = () => {
+      isScratchingRef.current = false;
+      scratchTargetRef.current = null;
+    };
+
+    container.addEventListener('touchstart', handleTouchStart, { passive: true });
+    container.addEventListener('touchmove', handleTouchMove, { passive: false });
+    container.addEventListener('touchend', handleTouchEnd);
+    container.addEventListener('touchcancel', handleTouchEnd);
+
+    return () => {
+      container.removeEventListener('touchstart', handleTouchStart);
+      container.removeEventListener('touchmove', handleTouchMove);
+      container.removeEventListener('touchend', handleTouchEnd);
+      container.removeEventListener('touchcancel', handleTouchEnd);
+    };
+  }, [isLoaded, scratchMode, visitedMap, onToggleScratch, triggerScratchFlakes]);
 
     // Initialize Leaflet map if not yet created
   useEffect(() => {
@@ -281,11 +404,7 @@ useEffect(() => {
     svgElement.insertBefore(defs, svgElement.firstChild);
   };
 
-  // Handle pointer / scratch events cross-browser
-  const triggerScratchFlakes = useCallback((x: number, y: number) => {
-    particleSystemRef.current?.emit(x, y, theme);
-    onScratchEffect(x, y);
-  }, [theme, onScratchEffect]);
+
 
   // Global pointer up listener
   useEffect(() => {
@@ -410,6 +529,14 @@ useEffect(() => {
         const countryName = props.NAME_EN || props.NAME || props.ADMIN || 'Unknown Country';
 
         layer.on({
+          add: (e) => {
+            const path = (e.target as any)._path;
+            if (path) {
+              path.setAttribute('data-entity-id', id);
+              path.setAttribute('data-country-code', countryCode);
+              path.setAttribute('data-country-name', countryName);
+            }
+          },
           mouseover: (e) => {
             const l = e.target;
             l.setStyle({
@@ -440,10 +567,6 @@ useEffect(() => {
               };
 
               triggerScratchFlakes(x, y);
-
-              if (scratchMode === 'scratch' && map.dragging.enabled()) {
-                map.dragging.disable();
-              }
             }
           },
           mousemove: (e) => {
