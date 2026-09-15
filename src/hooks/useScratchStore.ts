@@ -15,12 +15,14 @@ export const useScratchStore = () => {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved) as Record<string, any>;
-        // Migrate legacy IDs (e.g., "FRA") to the new "country-" prefixed format
+        // Migrate legacy IDs (e.g., "FRA") to the new "country-" prefixed format and discard old invalid -99 keys
         const migrated = Object.fromEntries(
-          Object.entries(parsed).map(([key, value]) => {
-            const newKey = key.startsWith('country-') || key.startsWith('state-') ? key : `country-${key}`;
-            return [newKey, value];
-          })
+          Object.entries(parsed)
+            .filter(([key]) => key !== '-99' && key !== 'country--99')
+            .map(([key, value]) => {
+              const newKey = key.startsWith('country-') || key.startsWith('state-') || key.startsWith('city-') ? key : `country-${key}`;
+              return [newKey, { ...value, id: newKey }];
+            })
         ) as Record<string, VisitedEntity>;
         return migrated;
       }

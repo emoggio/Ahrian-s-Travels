@@ -10,6 +10,20 @@ export interface WorldMapRef {
   flyTo: (lat: number, lng: number, zoom?: number) => void;
 }
 
+export const getFeatureCountryCode = (props: any): string => {
+  if (!props) return 'UNKNOWN';
+  const candidate = [
+    props.ISO_A3,
+    props.ADM0_A3,
+    props.ISO_A3_EH,
+    props.GU_A3,
+    props.WB_A3,
+    props.ISO_A2,
+    props.NAME
+  ].find(val => val && val !== '-99' && val !== -99 && typeof val === 'string' && val.trim() !== '');
+  return candidate || props.NAME || 'UNKNOWN';
+};
+
 interface WorldMapProps {
   visitedMap: Record<string, VisitedEntity>;
   isVisited: (id: string) => boolean;
@@ -154,40 +168,44 @@ export const WorldMap = forwardRef<WorldMapRef, WorldMapProps>(({
     }
   }, []);
 
-  // Initialize Leaflet Map & Inject SVG Shaders
-  // Touch handling for mobile: single‑finger scratch, multi‑finger gestures
-  useEffect(() => {
-    if (!mapInstanceRef.current) return;
-    const map = mapInstanceRef.current;
-    const isTouchScratch = { current: false };
-    const handleTouchStart = (e: TouchEvent) => {
-      if (e.touches.length === 1) {
-        // single finger – start scratch, disable map drag/zoom
-        isTouchScratch.current = true;
-        if (map.dragging.enabled()) map.dragging.disable();
-        if ((map as any).touchZoom && (map as any).touchZoom.enabled()) (map as any).touchZoom.disable();
-      } else {
-        // multi‑finger – keep map interactions enabled
-        isTouchScratch.current = false;
-        if (!map.dragging.enabled()) map.dragging.enable();
-        if ((map as any).touchZoom && !(map as any).touchZoom.enabled()) (map as any).touchZoom.enable();
-      }
-    };
-    const handleTouchEnd = () => {
-      if (isTouchScratch.current) {
-        if (!map.dragging.enabled()) map.dragging.enable();
-        if ((map as any).touchZoom && !(map as any).touchZoom.enabled()) (map as any).touchZoom.enable();
-        isTouchScratch.current = false;
-      }
-    };
-    const container = map.getContainer();
-    container.addEventListener('touchstart', handleTouchStart, { passive: false });
-    container.addEventListener('touchend', handleTouchEnd);
-    return () => {
-      container.removeEventListener('touchstart', handleTouchStart);
-      container.removeEventListener('touchend', handleTouchEnd);
-    };
-  }, []);
+
+
+// Initialize Leaflet Map & Inject SVG Shaders
+// Touch handling for mobile: single‑finger scratch, multi‑finger gestures
+useEffect(() => {
+  if (!mapInstanceRef.current || !isLoaded) return;
+  const map = mapInstanceRef.current;
+  const isTouchScratch = { current: false };
+  const handleTouchStart = (e: TouchEvent) => {
+    if (e.touches.length === 1) {
+      // single finger – start scratch, disable map drag/zoom
+      isTouchScratch.current = true;
+      if (map.dragging.enabled()) map.dragging.disable();
+      if ((map as any).touchZoom && (map as any).touchZoom.enabled()) (map as any).touchZoom.disable();
+    } else {
+      // multi‑finger – keep map interactions enabled
+      isTouchScratch.current = false;
+      if (!map.dragging.enabled()) map.dragging.enable();
+      if ((map as any).touchZoom && !(map as any).touchZoom.enabled()) (map as any).touchZoom.enable();
+    }
+  };
+  const handleTouchEnd = () => {
+    if (isTouchScratch.current) {
+      if (!map.dragging.enabled()) map.dragging.enable();
+      if ((map as any).touchZoom && !(map as any).touchZoom.enabled()) (map as any).touchZoom.enable();
+      isTouchScratch.current = false;
+    }
+  };
+  const container = map.getContainer();
+  container.addEventListener('touchstart', handleTouchStart, { passive: false });
+  container.addEventListener('touchend', handleTouchEnd);
+  container.addEventListener('touchcancel', handleTouchEnd);
+  return () => {
+    container.removeEventListener('touchstart', handleTouchStart);
+    container.removeEventListener('touchend', handleTouchEnd);
+    container.removeEventListener('touchcancel', handleTouchEnd);
+  };
+}, [isLoaded]);
 
     // Initialize Leaflet map if not yet created
   useEffect(() => {
@@ -305,9 +323,10 @@ export const WorldMap = forwardRef<WorldMapRef, WorldMapProps>(({
   // Style country feature
   const getCountryStyle = (feature: any) => {
     const props = feature.properties || {};
-    const id = 'country-' + (props.ISO_A3 || props.ISO_A2 || props.NAME);
+    const countryCode = getFeatureCountryCode(props);
+    const id = 'country-' + countryCode;
     const isScr = isVisited(id);
-    const cInfo = getCountryData(id, props.NAME);
+    const cInfo = getCountryData(countryCode, props.NAME);
     const themeStyles = getThemeBaseStyles(theme);
 
     if (isScr) {
@@ -386,7 +405,8 @@ export const WorldMap = forwardRef<WorldMapRef, WorldMapProps>(({
       style: getCountryStyle,
       onEachFeature: (feature, layer) => {
         const props = feature.properties || {};
-        const id = props.ISO_A3 || props.ADM0_A3 || props.GU_A3 || props.WB_A3 || props.ISO_A2 || props.NAME;
+        const countryCode = getFeatureCountryCode(props);
+        const id = 'country-' + countryCode;
         const countryName = props.NAME_EN || props.NAME || props.ADMIN || 'Unknown Country';
 
         layer.on({
@@ -412,7 +432,7 @@ export const WorldMap = forwardRef<WorldMapRef, WorldMapProps>(({
                 id,
                 type: 'country',
                 name: countryName,
-                countryCode: id,
+                countryCode,
                 countryName,
                 accumulatedDistance: 0,
                 lastX: x,
@@ -443,7 +463,7 @@ export const WorldMap = forwardRef<WorldMapRef, WorldMapProps>(({
                 triggerScratchFlakes(x, y);
 
                 if (target.accumulatedDistance > 25 && !visitedMap[id]) {
-                  onToggleScratch(id, 'country', countryName, id, countryName);
+                  onToggleScratch(id, 'country', countryName, countryCode, countryName);
                   target.accumulatedDistance = 0;
                 }
               }
@@ -455,7 +475,7 @@ export const WorldMap = forwardRef<WorldMapRef, WorldMapProps>(({
               onSelectEntity(visitedMap[id]);
             } else {
               triggerScratchFlakes(e.originalEvent?.clientX || 100, e.originalEvent?.clientY || 100);
-              onToggleScratch(id, 'country', countryName, id, countryName);
+              onToggleScratch(id, 'country', countryName, countryCode, countryName);
             }
           }
         });
