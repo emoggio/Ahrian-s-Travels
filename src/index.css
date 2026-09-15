@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 @layer base {
-  html, body {
+  html, body, #root {
     margin: 0;
     padding: 0;
     width: 100%;
@@ -11,7 +11,6 @@
     overflow: hidden;
     user-select: none;
     -webkit-user-select: none;
-    touch-action: manipulation;
   }
 }
 
@@ -26,6 +25,7 @@
   height: 100%;
   background: transparent !important;
   font-family: inherit;
+  touch-action: pan-x pan-y pinch-zoom;
 }
 
 .leaflet-control-zoom {

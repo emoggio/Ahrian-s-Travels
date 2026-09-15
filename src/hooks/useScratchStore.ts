@@ -14,17 +14,19 @@ export const useScratchStore = () => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
-        const parsed = JSON.parse(saved) as Record<string, any>;
-        // Migrate legacy IDs (e.g., "FRA") to the new "country-" prefixed format and discard old invalid -99 keys
-        const migrated = Object.fromEntries(
-          Object.entries(parsed)
-            .filter(([key]) => key !== '-99' && key !== 'country--99')
-            .map(([key, value]) => {
-              const newKey = key.startsWith('country-') || key.startsWith('state-') || key.startsWith('city-') ? key : `country-${key}`;
-              return [newKey, { ...value, id: newKey }];
-            })
-        ) as Record<string, VisitedEntity>;
-        return migrated;
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          const migrated = Object.fromEntries(
+            Object.entries(parsed)
+              .filter(([key, val]) => key && val && key !== '-99' && key !== 'country--99')
+              .map(([key, value]) => {
+                const valObj = (typeof value === 'object' && value !== null) ? value : {};
+                const newKey = key.startsWith('country-') || key.startsWith('state-') || key.startsWith('city-') ? key : `country-${key}`;
+                return [newKey, { ...valObj, id: newKey }];
+              })
+          ) as Record<string, VisitedEntity>;
+          return migrated;
+        }
       }
     } catch (e) {
       console.error('Error loading saved scratch data', e);

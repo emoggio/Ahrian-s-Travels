@@ -44,12 +44,12 @@ export function App() {
   }, [store]);
 
   return (
-    <div className="relative w-screen h-screen overflow-hidden flex flex-col bg-slate-950 text-slate-100 font-sans">
+    <div className="relative w-full h-screen h-dvh overflow-hidden flex flex-col bg-slate-950 text-slate-100 font-sans">
       {/* Top Navigation & Toolbar */}
       <TopHeader store={store} />
 
       {/* Main Map Container Area */}
-      <main className="relative flex-1 w-full h-full overflow-hidden">
+      <main className="relative flex-1 w-full min-h-0 overflow-hidden">
         {/* Floating Search Bar (Top-Center on Map) */}
         <div className="absolute top-3 inset-x-3 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 z-20 w-auto sm:w-96 max-w-full">
           <SearchBar
